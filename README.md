@@ -2,7 +2,7 @@
 Collection of helpful scripts for SQL Server development
 
 ## run_sql_2019.ps1
-This powershell script automates the process of getting up and running with SQL 2019 on Docker.  It is cross-platform, and will run on any machine that has docker and powershell support.  It is tested on Windows 10 and Mac OS Mojave.
+This powershell script automates the process of getting up and running with SQL Server 2019 on Docker.  It is cross-platform, and will run on any machine that has docker and powershell support.  It is tested on Windows 10 and Mac OS Mojave.
 
 It performs the following tasks:
 * Downloads the SQL Server 2019 RC1 docker image from the Azure repository
