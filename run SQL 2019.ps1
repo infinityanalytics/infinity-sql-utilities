@@ -28,8 +28,9 @@ $CurrentFolder = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
 $SqlImageName = "mcr.microsoft.com/mssql/server:2019-RC1-ubuntu"
 $MsftSamplesLocation = "https://github.com/Microsoft/sql-server-samples/releases/download/wide-world-importers-v1.0"
 $ContainerName = "SQL2019Test"
-$RebuildContainer = $False
 $SaPassword = "Password123#"
+$RebuildContainer = $True
+$RestoreWWIBackups = $False
 
 Clear-Host
 Write-Host "======= Starting Docker SQL Script ========" -ForegroundColor Green
@@ -78,30 +79,36 @@ foreach(
    docker cp "$CurrentFolder/backups/$SampleDatabase" "$($ContainerName):/var/opt/mssql/backup/"
 }
 
-Write-Output "Restoring WideWorldImporters databases..."
+if ($RestoreWWIBackups) {
+   Write-Output "Restoring WideWorldImporters databases..."
 
-docker exec -it $ContainerName /opt/mssql-tools/bin/sqlcmd -S localhost `
-  -U SA -P "$SaPassword" `
-  -Q """RESTORE DATABASE WideWorldImporters 
-         FROM DISK = '/var/opt/mssql/backup/WideWorldImporters-Full.bak' 
-         WITH MOVE 'WWI_Primary' TO '/var/opt/mssql/data/WideWorldImporters.mdf', 
-         MOVE 'WWI_UserData' TO '/var/opt/mssql/data/WideWorldImporters_userdata.ndf', 
-         MOVE 'WWI_Log' TO '/var/opt/mssql/data/WideWorldImporters.ldf', 
-         MOVE 'WWI_InMemory_Data_1' TO '/var/opt/mssql/data/WideWorldImporters_InMemory_Data_1';
-         ALTER DATABASE WideWorldImporters SET COMPATIBILITY_LEVEL=150;
-      """
-
-docker exec -it $ContainerName /opt/mssql-tools/bin/sqlcmd -S localhost `
+   docker exec -it $ContainerName /opt/mssql-tools/bin/sqlcmd -S localhost `
    -U SA -P "$SaPassword" `
-   -Q """RESTORE DATABASE WideWorldImportersDW 
-         FROM DISK = '/var/opt/mssql/backup/WideWorldImportersDW-Full.bak' 
-         WITH MOVE 'WWI_Primary' TO '/var/opt/mssql/data/WideWorldImportersDW.mdf', 
-         MOVE 'WWI_UserData' TO '/var/opt/mssql/data/WideWorldImportersDW_userdata.ndf', 
-         MOVE 'WWI_Log' TO '/var/opt/mssql/data/WideWorldImportersDW.ldf', 
-         MOVE 'WWIDW_InMemory_Data_1' TO '/var/opt/mssql/data/WideWorldImportersDW_InMemory_Data_1';
-         ALTER DATABASE WideWorldImportersDW SET COMPATIBILITY_LEVEL=150;
-      """
+   -Q """RESTORE DATABASE WideWorldImporters 
+            FROM DISK = '/var/opt/mssql/backup/WideWorldImporters-Full.bak' 
+            WITH MOVE 'WWI_Primary' TO '/var/opt/mssql/data/WideWorldImporters.mdf', 
+            MOVE 'WWI_UserData' TO '/var/opt/mssql/data/WideWorldImporters_userdata.ndf', 
+            MOVE 'WWI_Log' TO '/var/opt/mssql/data/WideWorldImporters.ldf', 
+            MOVE 'WWI_InMemory_Data_1' TO '/var/opt/mssql/data/WideWorldImporters_InMemory_Data_1';
+            ALTER DATABASE WideWorldImporters SET COMPATIBILITY_LEVEL=150;
+         """
 
-Write-Host "WideWorldImporters databases restored.  Script complete." -ForegroundColor Green
+   docker exec -it $ContainerName /opt/mssql-tools/bin/sqlcmd -S localhost `
+      -U SA -P "$SaPassword" `
+      -Q """RESTORE DATABASE WideWorldImportersDW 
+            FROM DISK = '/var/opt/mssql/backup/WideWorldImportersDW-Full.bak' 
+            WITH MOVE 'WWI_Primary' TO '/var/opt/mssql/data/WideWorldImportersDW.mdf', 
+            MOVE 'WWI_UserData' TO '/var/opt/mssql/data/WideWorldImportersDW_userdata.ndf', 
+            MOVE 'WWI_Log' TO '/var/opt/mssql/data/WideWorldImportersDW.ldf', 
+            MOVE 'WWIDW_InMemory_Data_1' TO '/var/opt/mssql/data/WideWorldImportersDW_InMemory_Data_1';
+            ALTER DATABASE WideWorldImportersDW SET COMPATIBILITY_LEVEL=150;
+         """
+
+   Write-Output "WideWorldImporters databases restored."
+}
+else {
+   Write-Output "WideWorldImporters databases skipped because `$RestoreWWIBackups is set to `$False."
+}
+
 #docker inspect -f "{{ .NetworkSettings.IPAddress }}" $ContainerName
-
+Write-Host "Script complete." -ForegroundColor Green
