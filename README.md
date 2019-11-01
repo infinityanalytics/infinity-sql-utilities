@@ -7,6 +7,7 @@ This powershell script automates the process of getting up and running with SQL 
 It performs the following tasks:
 * Downloads the SQL Server 2019 RC1 docker image from the Azure repository
 * Creates & starts a container with the default options
+* Enables SQL Agent & Memory-optimized Tempdb metadata
 * Downloads the 2 WideWorldImporters sample databases
 * Copies the sample databases into the docker container
 * Resores the sample databases and sets compatibility mode to 150
