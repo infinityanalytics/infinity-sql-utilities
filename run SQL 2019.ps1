@@ -49,6 +49,17 @@ write-output "***started docker image $SqlImageName***"
 if (!(Test-Path "$($CurrentFolder)/backups")) { New-Item -ItemType Directory -Force -Path "$($CurrentFolder)/backups" }
 docker exec -it $ContainerName mkdir -p "/var/opt/mssql/backup/"
 
+#enable SQL Agent:
+docker exec -it $ContainerName /opt/mssql/bin/mssql-conf set sqlagent.enabled true 
+
+#enable 2019 enhancement: hekaton-enabled tempDb metadata:
+docker exec -it $ContainerName /opt/mssql-tools/bin/sqlcmd -S localhost `
+   -U SA -P "$SaPassword" -Q "ALTER SERVER CONFIGURATION SET MEMORY_OPTIMIZED TEMPDB_METADATA = ON;"
+
+#the "systemctl restart mssql-server.service" command is failing -- restart container as a workaround
+docker restart $ContainerName
+write-output "***restarted docker image***"
+
 foreach(
    $SampleDatabase in (
       "WideWorldImporters-Full.bak",
