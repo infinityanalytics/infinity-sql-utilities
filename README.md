@@ -1,4 +1,4 @@
-# sql-server-utilities
+# intinity-sql-utilities
 Collection of helpful scripts for SQL Server development
 
 ## run_sql_2019.ps1
