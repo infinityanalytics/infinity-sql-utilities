@@ -26,6 +26,10 @@ OTHER DEALINGS IN THE SOFTWARE.
 $ErrorActionPreference = "Stop"
 $CurrentFolder = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
 $SqlImageName = "mcr.microsoft.com/mssql/server:2019-RC1-ubuntu"
+#$SqlImageName = "mcr.microsoft.com/mssql/server:2019-GA-ubuntu-16.04"
+   #container_linux.go:346: starting container process caused "process_linux.go:101: executing setns process caused \"exit status 1\"": unknown
+#$SqlImageName = "mcr.microsoft.com/mssql/server:2019-GDR1-ubuntu-16.04"
+#$SqlImageName = "mcr.microsoft.com/mssql/server:2019-latest"
 $MsftSamplesLocation = "https://github.com/Microsoft/sql-server-samples/releases/download/wide-world-importers-v1.0"
 $ContainerName = "SQL2019Test"
 $SaPassword = "Password123#"
@@ -42,7 +46,7 @@ if ($RebuildContainer) {
    Write-Output "Existing container removed."
 }
 #run the container.  Will warn 'is already in use' if this container name already exists
-docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=$saPassword" --name $ContainerName -p 1433:1433 -v sql1data:/var/opt/mssql -d $SqlImageName
+docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=$saPassword" -p 1433:1433 -v sql1data:/var/opt/mssql --name $ContainerName -d $SqlImageName
 docker start $ContainerName
 write-output "***started docker image $SqlImageName***"
 
@@ -110,5 +114,7 @@ else {
    Write-Output "WideWorldImporters databases skipped because `$RestoreWWIBackups is set to `$False."
 }
 
-#docker inspect -f "{{ .NetworkSettings.IPAddress }}" $ContainerName
+Write-Output "IP address to access this container:"
+ifconfig en0 inet
+
 Write-Host "Script complete." -ForegroundColor Green
