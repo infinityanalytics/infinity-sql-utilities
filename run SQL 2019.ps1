@@ -25,13 +25,9 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 $ErrorActionPreference = "Stop"
 $CurrentFolder = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
-$SqlImageName = "mcr.microsoft.com/mssql/server:2019-RC1-ubuntu"
-#$SqlImageName = "mcr.microsoft.com/mssql/server:2019-GA-ubuntu-16.04"
-   #container_linux.go:346: starting container process caused "process_linux.go:101: executing setns process caused \"exit status 1\"": unknown
-#$SqlImageName = "mcr.microsoft.com/mssql/server:2019-GDR1-ubuntu-16.04"
-#$SqlImageName = "mcr.microsoft.com/mssql/server:2019-latest"
+$SqlImageName = "mcr.microsoft.com/mssql/server:2019-latest"
 $MsftSamplesLocation = "https://github.com/Microsoft/sql-server-samples/releases/download/wide-world-importers-v1.0"
-$ContainerName = "SQL2019Test"
+$ContainerName = "SQL2019Test2"
 $SaPassword = "Password123#"
 $RebuildContainer = $True
 $RestoreWWIBackups = $False
@@ -45,8 +41,8 @@ if ($RebuildContainer) {
    docker rm $ContainerName
    Write-Output "Existing container removed."
 }
-#run the container.  Will warn 'is already in use' if this container name already exists
-docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=$saPassword" -p 1433:1433 -v sql1data:/var/opt/mssql --name $ContainerName -d $SqlImageName
+#run the container.  Will warn 'is already in use' if this container name already exists.  Quick fix for 2019 GA is to run as root (user 0)
+docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=$saPassword" -p 1433:1433 -u 0:0 -v sql1data:/var/opt/mssql --name $ContainerName -d $SqlImageName
 docker start $ContainerName
 write-output "***started docker image $SqlImageName***"
 
@@ -114,7 +110,7 @@ else {
    Write-Output "WideWorldImporters databases skipped because `$RestoreWWIBackups is set to `$False."
 }
 
-Write-Output "IP address to access this container:"
-ifconfig en0 inet
+#Write-Output "IP address to access this container:"
+#ifconfig en0 inet
 
 Write-Host "Script complete." -ForegroundColor Green
