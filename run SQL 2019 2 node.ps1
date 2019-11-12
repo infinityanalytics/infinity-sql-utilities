@@ -27,41 +27,53 @@ $ErrorActionPreference = "Stop"
 $CurrentFolder = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
 $SqlImageName = "mcr.microsoft.com/mssql/server:2019-latest"
 $MsftSamplesLocation = "https://github.com/Microsoft/sql-server-samples/releases/download/wide-world-importers-v1.0"
-$ContainerName = "SQL2019Test"
+$Container1Name = "SQL2019_DB"
+$Container2Name = "SQL2019_DW"
 $SaPassword = "Password123#"
-$RebuildContainer = $True
+$RebuildContainers = $True
 $RestoreWWIBackups = $True
 
 Clear-Host
 Write-Host "======= Starting Docker SQL Script ========" -ForegroundColor Green
 docker pull $SqlImageName
 
-if ($RebuildContainer) {
-   docker stop $ContainerName
-   docker rm $ContainerName
-   Write-Output "Existing container removed."
+if ($RebuildContainers) {
+   docker stop $Container1Name
+   docker rm $Container1Name
+   docker stop $Container2Name
+   docker rm $Container2Name
+   Write-Output "Existing containers removed."
 }
 #run the container.  Will warn 'is already in use' if this container name already exists.  Quick fix for 2019 GA is to run as root (user 0)
-docker run -m 4g -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=$saPassword" -p 1433:1433 -u 0:0 `
-   -v sql1data:/var/opt/mssql --name $ContainerName -d $SqlImageName 
+docker run -m 4g -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=$saPassword" -p 1431:1433 -u 0:0 `
+   -v sql1data:/var/opt/mssql --name $Container1Name -d $SqlImageName 
 
-docker start $ContainerName
-write-output "***started docker image $SqlImageName***"
+docker run -m 4g -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=$saPassword" -p 1432:1433 -u 0:0 `
+   -v sql2data:/var/opt/mssql --name $Container2Name -d $SqlImageName 
+
+docker start $Container1Name
+docker start $Container2Name
+write-output "***started docker images $SqlImageName***"
 
 #Download WideWorldImporters sample databases
 if (!(Test-Path "$($CurrentFolder)/backups")) { New-Item -ItemType Directory -Force -Path "$($CurrentFolder)/backups" }
-docker exec -it $ContainerName mkdir -p "/var/opt/mssql/backup/"
+docker exec -it $Container1Name mkdir -p "/var/opt/mssql/backup/"
+docker exec -it $Container2Name mkdir -p "/var/opt/mssql/backup/"
 
 #enable SQL Agent:
-docker exec -it $ContainerName /opt/mssql/bin/mssql-conf set sqlagent.enabled true 
+docker exec -it $Container1Name /opt/mssql/bin/mssql-conf set sqlagent.enabled true 
+docker exec -it $Container2Name /opt/mssql/bin/mssql-conf set sqlagent.enabled true 
 
 #enable 2019 enhancement: hekaton-enabled tempDb metadata:
-docker exec -it $ContainerName /opt/mssql-tools/bin/sqlcmd -S localhost `
+docker exec -it $Container1Name /opt/mssql-tools/bin/sqlcmd -S localhost `
+   -U SA -P "$SaPassword" -Q "ALTER SERVER CONFIGURATION SET MEMORY_OPTIMIZED TEMPDB_METADATA = ON;"
+docker exec -it $Container2Name /opt/mssql-tools/bin/sqlcmd -S localhost `
    -U SA -P "$SaPassword" -Q "ALTER SERVER CONFIGURATION SET MEMORY_OPTIMIZED TEMPDB_METADATA = ON;"
 
 #the "systemctl restart mssql-server.service" command is failing -- restart container as a workaround
-write-output "restarting docker image..."
-#docker restart $ContainerName
+write-output "restarting docker images..."
+docker restart $Container1Name
+docker restart $Container2Name
 #docker exec -it $ContainerName /opt/mssql/bin/systemctl restart mssql-server.service
 write-output "***restarted docker image***"
 
@@ -78,15 +90,15 @@ foreach(
    else {
       Write-Output "$($CurrentFolder)/backups/$SampleDatabase already downloaded."
    }
-   
-   #copy local file to docker container
-   docker cp "$CurrentFolder/backups/$SampleDatabase" "$($ContainerName):/var/opt/mssql/backup/"
 }
+#copy local file to docker container
+docker cp "$CurrentFolder/backups/WideWorldImporters-Full.bak" "$($Container1Name):/var/opt/mssql/backup/"
+docker cp "$CurrentFolder/backups/WideWorldImportersDW-Full.bak" "$($Container2Name):/var/opt/mssql/backup/"
 
 if ($RestoreWWIBackups) {
    Write-Output "Restoring WideWorldImporters databases..."
 
-   docker exec -it $ContainerName /opt/mssql-tools/bin/sqlcmd -S localhost `
+   docker exec -it $Container1Name /opt/mssql-tools/bin/sqlcmd -S localhost `
    -U SA -P "$SaPassword" `
    -Q """RESTORE DATABASE WideWorldImporters 
             FROM DISK = '/var/opt/mssql/backup/WideWorldImporters-Full.bak' 
@@ -97,7 +109,7 @@ if ($RestoreWWIBackups) {
             ALTER DATABASE WideWorldImporters SET COMPATIBILITY_LEVEL=150;
          """
 
-   docker exec -it $ContainerName /opt/mssql-tools/bin/sqlcmd -S localhost `
+   docker exec -it $Container2Name /opt/mssql-tools/bin/sqlcmd -S localhost `
       -U SA -P "$SaPassword" `
       -Q """RESTORE DATABASE WideWorldImportersDW 
             FROM DISK = '/var/opt/mssql/backup/WideWorldImportersDW-Full.bak' 
