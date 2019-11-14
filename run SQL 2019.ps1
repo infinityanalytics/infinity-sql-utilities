@@ -43,7 +43,7 @@ if ($RebuildContainer) {
 }
 #run the container.  Will warn 'is already in use' if this container name already exists.  Quick fix for 2019 GA is to run as root (user 0)
 docker run -m 4g -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=$saPassword" -p 1433:1433 -u 0:0 `
-   -v sql1data:/var/opt/mssql --name $ContainerName -d $SqlImageName 
+   -v sqldata:/var/opt/mssql --name $ContainerName -d $SqlImageName 
 
 docker start $ContainerName
 write-output "***started docker image $SqlImageName***"
@@ -57,11 +57,12 @@ docker exec -it $ContainerName /opt/mssql/bin/mssql-conf set sqlagent.enabled tr
 
 #enable 2019 enhancement: hekaton-enabled tempDb metadata:
 docker exec -it $ContainerName /opt/mssql-tools/bin/sqlcmd -S localhost `
-   -U SA -P "$SaPassword" -Q "ALTER SERVER CONFIGURATION SET MEMORY_OPTIMIZED TEMPDB_METADATA = ON;"
+   -U SA -P "$SaPassword" -l 30 `
+   -Q "ALTER SERVER CONFIGURATION SET MEMORY_OPTIMIZED TEMPDB_METADATA = ON;"
 
 #the "systemctl restart mssql-server.service" command is failing -- restart container as a workaround
 write-output "restarting docker image..."
-#docker restart $ContainerName
+docker restart $ContainerName
 #docker exec -it $ContainerName /opt/mssql/bin/systemctl restart mssql-server.service
 write-output "***restarted docker image***"
 
@@ -87,7 +88,7 @@ if ($RestoreWWIBackups) {
    Write-Output "Restoring WideWorldImporters databases..."
 
    docker exec -it $ContainerName /opt/mssql-tools/bin/sqlcmd -S localhost `
-   -U SA -P "$SaPassword" `
+   -U SA -P "$SaPassword" -l 30 `
    -Q """RESTORE DATABASE WideWorldImporters 
             FROM DISK = '/var/opt/mssql/backup/WideWorldImporters-Full.bak' 
             WITH MOVE 'WWI_Primary' TO '/var/opt/mssql/data/WideWorldImporters.mdf', 
